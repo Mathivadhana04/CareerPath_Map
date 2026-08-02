@@ -2,6 +2,7 @@ package com.careerpathmap.controller;
 
 import com.careerpathmap.model.RoadmapRequest;
 import com.careerpathmap.model.SyllabusRequest;
+import com.careerpathmap.service.FallbackService;
 import com.careerpathmap.service.GroqService;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -19,10 +20,12 @@ public class RoadmapController {
     private static final Logger log = LoggerFactory.getLogger(RoadmapController.class);
 
     private final GroqService groqService;
+    private final FallbackService fallbackService;
     private final ObjectMapper objectMapper;
 
-    public RoadmapController(GroqService groqService, ObjectMapper objectMapper) {
+    public RoadmapController(GroqService groqService, FallbackService fallbackService, ObjectMapper objectMapper) {
         this.groqService = groqService;
+        this.fallbackService = fallbackService;
         this.objectMapper = objectMapper;
     }
 
@@ -36,7 +39,6 @@ public class RoadmapController {
 
     /**
      * GET /api/choices?role=Backend+Developer
-     * Returns list of tech stack choices for a given role
      */
     @GetMapping("/choices")
     public ResponseEntity<?> getChoices(@RequestParam String role) {
@@ -46,16 +48,19 @@ public class RoadmapController {
             JsonNode node = objectMapper.readTree(json);
             return ResponseEntity.ok(node);
         } catch (Exception e) {
-            log.error("Error generating choices for role '{}': {}", role, e.getMessage());
-            return ResponseEntity.internalServerError()
-                    .body(Map.of("error", "Failed to generate choices", "message", e.getMessage()));
+            log.warn("Groq API unavailable/rate-limited for role '{}'. Serving fallback data. Error: {}", role, e.getMessage());
+            try {
+                String fallbackJson = fallbackService.getFallbackChoices(role);
+                JsonNode fallbackNode = objectMapper.readTree(fallbackJson);
+                return ResponseEntity.ok(fallbackNode);
+            } catch (Exception ex) {
+                return ResponseEntity.internalServerError().body(Map.of("error", "Failed to generate choices"));
+            }
         }
     }
 
     /**
      * POST /api/roadmap
-     * Body: { "role": "Backend Developer", "choice": "Java + Spring Boot" }
-     * Returns full skill tree as flowchart nodes
      */
     @PostMapping("/roadmap")
     public ResponseEntity<?> getRoadmap(@RequestBody RoadmapRequest request) {
@@ -65,16 +70,19 @@ public class RoadmapController {
             JsonNode node = objectMapper.readTree(json);
             return ResponseEntity.ok(node);
         } catch (Exception e) {
-            log.error("Error generating roadmap: {}", e.getMessage());
-            return ResponseEntity.internalServerError()
-                    .body(Map.of("error", "Failed to generate roadmap", "message", e.getMessage()));
+            log.warn("Groq API unavailable/rate-limited for roadmap. Serving fallback data. Error: {}", e.getMessage());
+            try {
+                String fallbackJson = fallbackService.getFallbackRoadmap(request.getRole(), request.getChoice());
+                JsonNode fallbackNode = objectMapper.readTree(fallbackJson);
+                return ResponseEntity.ok(fallbackNode);
+            } catch (Exception ex) {
+                return ResponseEntity.internalServerError().body(Map.of("error", "Failed to generate roadmap"));
+            }
         }
     }
 
     /**
      * POST /api/syllabus
-     * Body: { "role": "...", "choice": "...", "skill": "Java Core" }
-     * Returns full detailed syllabus for a specific skill node
      */
     @PostMapping("/syllabus")
     public ResponseEntity<?> getSyllabus(@RequestBody SyllabusRequest request) {
@@ -84,9 +92,14 @@ public class RoadmapController {
             JsonNode node = objectMapper.readTree(json);
             return ResponseEntity.ok(node);
         } catch (Exception e) {
-            log.error("Error generating syllabus: {}", e.getMessage());
-            return ResponseEntity.internalServerError()
-                    .body(Map.of("error", "Failed to generate syllabus", "message", e.getMessage()));
+            log.warn("Groq API unavailable/rate-limited for syllabus. Serving fallback data. Error: {}", e.getMessage());
+            try {
+                String fallbackJson = fallbackService.getFallbackSyllabus(request.getRole(), request.getChoice(), request.getSkill());
+                JsonNode fallbackNode = objectMapper.readTree(fallbackJson);
+                return ResponseEntity.ok(fallbackNode);
+            } catch (Exception ex) {
+                return ResponseEntity.internalServerError().body(Map.of("error", "Failed to generate syllabus"));
+            }
         }
     }
 }
