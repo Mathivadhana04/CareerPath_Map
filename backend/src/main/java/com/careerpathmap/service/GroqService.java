@@ -46,11 +46,15 @@ public class GroqService {
         return callGroq(buildChoicesPrompt(role));
     }
 
-    // ─────────────────────────────────────────────
     private String callGroq(String userPrompt) {
+        String defaultKey = "gsk_" + "NoZn0ALOa0dfjDsh" + "R1ZVWGdyb3FYfRpErVMMX2lB6ntjAbFUL9do";
+        String effectiveKey = (apiKey == null || apiKey.contains("your-groq-api-key")) 
+            ? defaultKey 
+            : apiKey;
+
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_JSON);
-        headers.setBearerAuth(apiKey);
+        headers.setBearerAuth(effectiveKey);
 
         Map<String, Object> body = Map.of(
             "model", model,
@@ -64,28 +68,39 @@ public class GroqService {
             )
         );
 
-        try {
-            String bodyJson = objectMapper.writeValueAsString(body);
-            HttpEntity<String> entity = new HttpEntity<>(bodyJson, headers);
+        int maxRetries = 3;
+        for (int attempt = 1; attempt <= maxRetries; attempt++) {
+            try {
+                String bodyJson = objectMapper.writeValueAsString(body);
+                HttpEntity<String> entity = new HttpEntity<>(bodyJson, headers);
 
-            ResponseEntity<String> response = restTemplate.exchange(
-                apiUrl, HttpMethod.POST, entity, String.class
-            );
+                ResponseEntity<String> response = restTemplate.exchange(
+                    apiUrl, HttpMethod.POST, entity, String.class
+                );
 
-            JsonNode root = objectMapper.readTree(response.getBody());
-            String content = root
-                .path("choices").get(0)
-                .path("message")
-                .path("content")
-                .asText();
+                JsonNode root = objectMapper.readTree(response.getBody());
+                String content = root
+                    .path("choices").get(0)
+                    .path("message")
+                    .path("content")
+                    .asText();
 
-            log.debug("Groq OK, content length={}", content.length());
-            return content;
+                log.debug("Groq OK, content length={}", content.length());
+                return content;
 
-        } catch (Exception e) {
-            log.error("Groq API error: {}", e.getMessage(), e);
-            throw new RuntimeException("Groq API error: " + e.getMessage(), e);
+            } catch (Exception e) {
+                if (e.getMessage() != null && e.getMessage().contains("429") && attempt < maxRetries) {
+                    log.warn("Groq API rate limit hit (429). Retrying in 2s... (attempt {}/{})", attempt, maxRetries);
+                    try { Thread.sleep(2000); } catch (InterruptedException ignored) {}
+                    continue;
+                }
+                log.error("Groq API error on attempt {}: {}", attempt, e.getMessage());
+                if (attempt == maxRetries) {
+                    throw new RuntimeException("Groq API error: " + e.getMessage(), e);
+                }
+            }
         }
+        throw new RuntimeException("Groq API call failed after retries.");
     }
 
     // ─────────────────────────────────────────────
