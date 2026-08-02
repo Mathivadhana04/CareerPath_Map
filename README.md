@@ -171,6 +171,7 @@ http://localhost:5173
 > **Syllabus Panel** — two-column reveal below the chart with topics, projects and resources
 
 ---
+<img width="953" height="539" alt="Screenshot 2026-08-02 203402" src="https://github.com/user-attachments/assets/e6f0d6ba-6649-4257-8a6b-a699737b172f" />
 
 
 
