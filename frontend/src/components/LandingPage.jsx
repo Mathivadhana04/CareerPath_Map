@@ -61,7 +61,7 @@ export default function LandingPage({ onSearch }) {
         {/* Eyebrow badge */}
         <div
           className="flex items-center gap-2 mb-7 px-3 py-1.5 rounded-full text-xs font-mono"
-          style={{ background: '#1a1f2e', border: '1px solid #3b82f630', color: '#93c5fd' }}
+          style={{ background: '#231805', border: '1px solid #f59e0b40', color: '#fbbf24' }}
         >
           <Zap size={11} />
           <span>AI-powered · Groq LLM · Any role · Realtime</span>
@@ -75,7 +75,7 @@ export default function LandingPage({ onSearch }) {
           Career Roadmap{' '}
           <span
             style={{
-              background: 'linear-gradient(90deg, #3b82f6, #22d3ee)',
+              background: 'linear-gradient(90deg, #f59e0b, #fef08a)',
               WebkitBackgroundClip: 'text',
               WebkitTextFillColor: 'transparent',
               backgroundClip: 'text',
@@ -97,7 +97,7 @@ export default function LandingPage({ onSearch }) {
         <div
           className="w-full flex items-center gap-0 mb-4 rounded-lg overflow-hidden"
           style={{ border: '1px solid var(--color-border-muted)', background: 'var(--color-elevated)' }}
-          onFocusCapture={e => e.currentTarget.style.borderColor = 'var(--color-blue)'}
+          onFocusCapture={e => e.currentTarget.style.borderColor = '#f59e0b'}
           onBlurCapture={e  => e.currentTarget.style.borderColor = 'var(--color-border-muted)'}
         >
           <Search size={15} color="var(--color-text-subtle)" className="ml-3.5 shrink-0" />
@@ -115,8 +115,8 @@ export default function LandingPage({ onSearch }) {
             disabled={!query.trim()}
             className="flex items-center gap-1.5 px-4 py-3 text-sm font-600 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
             style={{
-              background: query.trim() ? '#1e3a5f' : 'transparent',
-              color: query.trim() ? '#93c5fd' : 'var(--color-text-subtle)',
+              background: query.trim() ? '#231805' : 'transparent',
+              color: query.trim() ? '#fbbf24' : 'var(--color-text-subtle)',
               borderLeft: '1px solid var(--color-border)',
             }}
           >

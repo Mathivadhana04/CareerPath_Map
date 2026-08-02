@@ -26,9 +26,9 @@ export default function ChoicesGrid({ choices, selectedId, onSelect }) {
             onClick={() => onSelect(ch)}
             className="relative p-4 rounded-lg cursor-pointer"
             style={{
-              background: active ? '#111827' : 'var(--color-elevated)',
-              border: `1px solid ${active ? 'var(--color-blue)' : 'var(--color-border)'}`,
-              boxShadow: active ? '0 0 0 1px #3b82f640' : 'none',
+              background: active ? '#231805' : 'var(--color-elevated)',
+              border: `1px solid ${active ? '#f59e0b' : 'var(--color-border)'}`,
+              boxShadow: active ? '0 0 0 1px #f59e0b40' : 'none',
             }}
             onMouseEnter={e => { if (!active) e.currentTarget.style.borderColor = 'var(--color-border-muted)'; }}
             onMouseLeave={e => { if (!active) e.currentTarget.style.borderColor = 'var(--color-border)'; }}

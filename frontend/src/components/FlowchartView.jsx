@@ -1,23 +1,24 @@
 import React, { useState, useEffect, useRef, useCallback, useLayoutEffect } from 'react';
 import { fetchRoadmap, fetchSyllabus } from '../api/roadmapApi';
-import { ChevronDown, ChevronUp, CheckSquare, Square, GitBranch } from 'lucide-react';
+import { ChevronDown, ChevronUp, CheckSquare, Square, GitBranch, X, Book, MonitorPlay, FileText, Wrench, Zap } from 'lucide-react';
 
-// ── Category colour map ──────────────────────────────────
+// ── Category Cyber-Amber/Gold colour map ──────────────────────────────────
 const CAT = {
-  fundamentals: { accent: '#8b5cf6', bg: '#13103a', light: '#a78bfa' },
-  frameworks:   { accent: '#3b82f6', bg: '#0f1e38', light: '#93c5fd' },
-  tools:        { accent: '#22d3ee', bg: '#071e2a', light: '#67e8f9' },
-  databases:    { accent: '#3fb950', bg: '#0a1f14', light: '#86efac' },
-  advanced:     { accent: '#ec4899', bg: '#2a0820', light: '#f9a8d4' },
-  devops:       { accent: '#f59e0b', bg: '#251800', light: '#fcd34d' },
-  testing:      { accent: '#a78bfa', bg: '#14103a', light: '#c4b5fd' },
+  fundamentals: { accent: '#f59e0b', bg: '#231805', light: '#fbbf24' },
+  frameworks:   { accent: '#eab308', bg: '#221c04', light: '#fef08a' },
+  tools:        { accent: '#d97706', bg: '#211303', light: '#fcd34d' },
+  databases:    { accent: '#10b981', bg: '#081f17', light: '#6ee7b7' },
+  advanced:     { accent: '#f97316', bg: '#241205', light: '#fdba74' },
+  devops:       { accent: '#84cc16', bg: '#182405', light: '#bef264' },
+  testing:      { accent: '#a855f7', bg: '#1b0a2a', light: '#d8b4fe' },
 };
-const DIFF_C = { Beginner: '#3fb950', Intermediate: '#d29922', Advanced: '#f85149' };
+const DIFF_C = { Beginner: '#10b981', Intermediate: '#f59e0b', Advanced: '#ef4444' };
 
-// ── Tiny helpers ─────────────────────────────────────────
+const SYLLABUS_CACHE = new Map();
+
 function Label({ children }) {
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 8, margin: '14px 0 8px' }}>
+    <div style={{ display: 'flex', alignItems: 'center', gap: 8, margin: '16px 0 8px' }}>
       <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--color-text-subtle)' }}>
         {children}
       </span>
@@ -26,11 +27,8 @@ function Label({ children }) {
   );
 }
 
-// ── Client-side syllabus cache ────────────────────────────
-const SYLLABUS_CACHE = new Map();
-
-// ── Inline Syllabus ───────────────────────────────────────
-function InlineSyllabus({ role, choice, node, isCompleted, onToggleComplete }) {
+// ── Drawer Syllabus Panel (No layout shifting on main page!) ─────────────────
+function SyllabusDrawer({ role, choice, node, isCompleted, onToggleComplete, onClose }) {
   const [syl,    setSyl]    = useState(null);
   const [load,   setLoad]   = useState(true);
   const [err,    setErr]    = useState(null);
@@ -63,209 +61,255 @@ function InlineSyllabus({ role, choice, node, isCompleted, onToggleComplete }) {
     return () => { active = false; };
   }, [role, choice.label, node.label]);
 
+  useEffect(() => {
+    const handleKey = (e) => { if (e.key === 'Escape') onClose(); };
+    window.addEventListener('keydown', handleKey);
+    return () => window.removeEventListener('keydown', handleKey);
+  }, [onClose]);
+
   const cat = CAT[node.category] || CAT.frameworks;
 
   return (
-    <div style={{
-      marginTop: 8,
-      background: 'var(--color-base)',
-      border: `1px solid ${cat.accent}35`,
-      borderTop: `2px solid ${cat.accent}`,
-      borderRadius: 8,
-      padding: 16,
-      width: 520,
-      maxWidth: '90vw',
-      textAlign: 'left',
-    }}>
-      {load && (
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 0' }}>
-          <div className="spinner" style={{ width: 16, height: 16, borderWidth: 2 }} />
-          <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--color-text-muted)' }}>
-            Generating syllabus…
-          </span>
-        </div>
-      )}
-      {err && <p style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: '#f87171' }}>{err}</p>}
+    <div className="syllabus-drawer-container">
+      {/* Backdrop overlay */}
+      <div className="syllabus-drawer-overlay" onClick={onClose} />
 
-      {syl && !load && (<>
-        {/* Badges */}
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 10 }}>
-          {[
-            syl.difficulty && { label: syl.difficulty, color: DIFF_C[syl.difficulty] || '#8b949e' },
-            syl.estimatedDuration && { label: `⏱ ${syl.estimatedDuration}`, color: '#22d3ee' },
-          ].filter(Boolean).map((b, i) => (
-            <span key={i} style={{
-              fontFamily: 'var(--font-mono)', fontSize: 10, padding: '2px 8px', borderRadius: 4,
-              background: `${b.color}15`, border: `1px solid ${b.color}35`, color: b.color,
-            }}>{b.label}</span>
-          ))}
-          {isCompleted && (
-            <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10, padding: '2px 8px', borderRadius: 4, background: '#0d1f17', border: '1px solid #3fb95035', color: '#86efac' }}>
-              ✓ Completed
+      {/* Drawer content */}
+      <div className="syllabus-drawer-content">
+        {/* Header */}
+        <div style={{
+          padding: '16px 20px',
+          background: 'var(--color-elevated)',
+          borderBottom: '1px solid var(--color-border)',
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyBetween: 'space-between', width: '100%', marginBottom: 8 }}>
+            <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: 'var(--color-text-subtle)' }}>
+              {role} / {choice.label}
             </span>
-          )}
+            <button
+              onClick={onClose}
+              style={{
+                background: 'var(--color-overlay)', border: '1px solid var(--color-border)',
+                borderRadius: 4, color: 'var(--color-text-muted)', cursor: 'pointer',
+                width: 24, height: 24, display: 'flex', alignItems: 'center', justifyCenter: 'center', marginLeft: 'auto'
+              }}
+            >
+              <X size={13} />
+            </button>
+          </div>
+
+          <h2 style={{ fontFamily: 'var(--font-display)', fontSize: 18, fontWeight: 800, color: 'var(--color-text)', margin: '0 0 10px' }}>
+            {node.label}
+          </h2>
+
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+            <span style={{
+              fontFamily: 'var(--font-mono)', fontSize: 10, padding: '2px 8px', borderRadius: 4,
+              background: `${cat.accent}20`, border: `1px solid ${cat.accent}40`, color: cat.light, fontWeight: 600
+            }}>
+              {node.category}
+            </span>
+            {node.difficulty && (
+              <span style={{
+                fontFamily: 'var(--font-mono)', fontSize: 10, padding: '2px 8px', borderRadius: 4,
+                background: `${DIFF_C[node.difficulty] || '#f59e0b'}18`,
+                border: `1px solid ${DIFF_C[node.difficulty] || '#f59e0b'}35`,
+                color: DIFF_C[node.difficulty] || '#f59e0b', fontWeight: 600
+              }}>
+                {node.difficulty}
+              </span>
+            )}
+            {isCompleted && (
+              <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10, padding: '2px 8px', borderRadius: 4, background: '#0d1f17', border: '1px solid #10b98135', color: '#6ee7b7' }}>
+                ✓ Completed
+              </span>
+            )}
+          </div>
         </div>
 
-        {/* Overview */}
-        {syl.overview && (
-          <p style={{
-            fontSize: 12, color: 'var(--color-text-muted)', lineHeight: 1.7,
-            padding: '10px 12px', borderRadius: 6,
-            background: 'var(--color-elevated)',
-            borderLeft: `2px solid ${cat.accent}`,
-            marginBottom: 4,
-          }}>{syl.overview}</p>
-        )}
+        {/* Scrollable Body */}
+        <div style={{ flex: 1, overflowY: 'auto', padding: 20 }}>
+          {load && (
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyCenter: 'center', gap: 10, padding: '3rem 0' }}>
+              <div className="spinner" />
+              <span style={{ fontFamily: 'var(--font-mono)', fontSize: 12, color: 'var(--color-text-muted)' }}>
+                Generating syllabus for <strong style={{ color: '#f59e0b' }}>{node.label}</strong>…
+              </span>
+            </div>
+          )}
 
-        {/* Prerequisites */}
-        {syl.prerequisites?.length > 0 && (<>
-          <Label>Prerequisites</Label>
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5, marginBottom: 4 }}>
-            {syl.prerequisites.map((p, i) => (
-              <span key={i} style={{
-                fontFamily: 'var(--font-mono)', fontSize: 10,
-                padding: '2px 8px', borderRadius: 4,
-                background: 'var(--color-overlay)', border: '1px solid var(--color-border)',
-                color: 'var(--color-text-muted)',
-              }}>{p}</span>
-            ))}
-          </div>
-        </>)}
+          {err && (
+            <div style={{ padding: 14, borderRadius: 6, background: '#1a0a0a', border: '1px solid #ef444430', color: '#f87171', fontSize: 12 }}>
+              ⚠️ {err}
+            </div>
+          )}
 
-        {/* Topics */}
-        {syl.topics?.length > 0 && (<>
-          <Label>Topics to Cover ({syl.topics.length})</Label>
-          {syl.topics.map((t, i) => (
-            <div key={i} style={{ border: '1px solid var(--color-border)', borderRadius: 6, marginBottom: 5, overflow: 'hidden' }}>
-              <div
-                onClick={() => setOpen(p => ({ ...p, [i]: !p[i] }))}
-                style={{
-                  display: 'flex', alignItems: 'center', gap: 8, padding: '9px 12px',
-                  background: 'var(--color-elevated)', cursor: 'pointer',
-                }}
-              >
-                <span style={{
-                  width: 22, height: 22, borderRadius: '50%', flexShrink: 0,
-                  background: `${cat.accent}20`, border: `1px solid ${cat.accent}40`,
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  fontFamily: 'var(--font-mono)', fontSize: 9, fontWeight: 700, color: cat.light,
-                }}>{t.order || i + 1}</span>
-                <div style={{ flex: 1 }}>
-                  <p style={{ fontSize: 12, fontWeight: 600, color: 'var(--color-text)', margin: 0 }}>{t.name}</p>
-                  {t.estimatedHours && (
-                    <p style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: 'var(--color-text-subtle)', margin: 0 }}>
-                      ⏱ {t.estimatedHours}h · {t.subtopics?.length || 0} subtopics
-                    </p>
-                  )}
-                </div>
-                {open[i] ? <ChevronUp size={12} color="var(--color-text-subtle)" /> : <ChevronDown size={12} color="var(--color-text-subtle)" />}
+          {syl && !load && (<>
+            {/* Overview */}
+            {syl.overview && (
+              <p style={{
+                fontSize: 12.5, color: 'var(--color-text-muted)', lineHeight: 1.7,
+                padding: '12px 14px', borderRadius: 6,
+                background: 'var(--color-base)',
+                borderLeft: `3px solid ${cat.accent}`,
+                margin: '0 0 12px',
+              }}>
+                {syl.overview}
+              </p>
+            )}
+
+            {/* Prerequisites */}
+            {syl.prerequisites?.length > 0 && (<>
+              <Label>Prerequisites</Label>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                {syl.prerequisites.map((p, i) => (
+                  <span key={i} style={{
+                    fontFamily: 'var(--font-mono)', fontSize: 10,
+                    padding: '3px 8px', borderRadius: 4,
+                    background: 'var(--color-overlay)', border: '1px solid var(--color-border)',
+                    color: 'var(--color-text-muted)',
+                  }}>{p}</span>
+                ))}
               </div>
+            </>)}
 
-              {open[i] && (
-                <div style={{ padding: '10px 12px', background: 'var(--color-base)', borderTop: '1px solid var(--color-border)' }}>
-                  {t.description && (
-                    <p style={{ fontSize: 11, color: 'var(--color-text-muted)', lineHeight: 1.6, marginBottom: 8 }}>{t.description}</p>
-                  )}
-                  {t.subtopics?.map((sub, j) => (
-                    <div key={j} style={{
-                      marginBottom: 6, padding: '8px 10px', borderRadius: 5,
-                      background: 'var(--color-elevated)', border: '1px solid var(--color-border)',
-                    }}>
-                      <p style={{ fontSize: 11, fontWeight: 600, color: 'var(--color-text)', margin: '0 0 5px' }}>📌 {sub.name}</p>
-                      <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
-                        {sub.keyPoints?.map((kp, k) => (
-                          <li key={k} style={{ display: 'flex', alignItems: 'flex-start', gap: 6, marginBottom: 3 }}>
-                            <span style={{ color: cat.accent, fontSize: 10, marginTop: 2, flexShrink: 0 }}>→</span>
-                            <span style={{ fontSize: 11, color: 'var(--color-text-muted)', lineHeight: 1.5 }}>{kp}</span>
-                          </li>
-                        ))}
-                      </ul>
+            {/* Topics accordion (expands safely inside drawer without touching main page!) */}
+            {syl.topics?.length > 0 && (<>
+              <Label>Topics to Cover ({syl.topics.length})</Label>
+              {syl.topics.map((t, i) => (
+                <div key={i} style={{ border: '1px solid var(--color-border)', borderRadius: 6, marginBottom: 6, overflow: 'hidden' }}>
+                  <div
+                    onClick={() => setOpen(p => ({ ...p, [i]: !p[i] }))}
+                    style={{
+                      display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px',
+                      background: 'var(--color-elevated)', cursor: 'pointer', userSelect: 'none'
+                    }}
+                  >
+                    <span style={{
+                      width: 22, height: 22, borderRadius: '50%', flexShrink: 0,
+                      background: `${cat.accent}20`, border: `1px solid ${cat.accent}40`,
+                      display: 'flex', alignItems: 'center', justifyCenter: 'center',
+                      fontFamily: 'var(--font-mono)', fontSize: 10, fontWeight: 700, color: cat.light,
+                    }}>{t.order || i + 1}</span>
+                    <div style={{ flex: 1 }}>
+                      <p style={{ fontSize: 12.5, fontWeight: 600, color: 'var(--color-text)', margin: 0 }}>{t.name}</p>
+                      {t.estimatedHours && (
+                        <p style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: 'var(--color-text-subtle)', margin: 0 }}>
+                          ⏱ {t.estimatedHours}h · {t.subtopics?.length || 0} subtopics
+                        </p>
+                      )}
                     </div>
-                  ))}
+                    {open[i] ? <ChevronUp size={13} color="var(--color-text-subtle)" /> : <ChevronDown size={13} color="var(--color-text-subtle)" />}
+                  </div>
+
+                  {open[i] && (
+                    <div style={{ padding: '12px 14px', background: 'var(--color-base)', borderTop: '1px solid var(--color-border)' }}>
+                      {t.description && (
+                        <p style={{ fontSize: 11.5, color: 'var(--color-text-muted)', lineHeight: 1.6, marginBottom: 8 }}>{t.description}</p>
+                      )}
+                      {t.subtopics?.map((sub, j) => (
+                        <div key={j} style={{
+                          marginBottom: 8, padding: '8px 10px', borderRadius: 5,
+                          background: 'var(--color-elevated)', border: '1px solid var(--color-border)',
+                        }}>
+                          <p style={{ fontSize: 11.5, fontWeight: 600, color: 'var(--color-text)', margin: '0 0 4px' }}>📌 {sub.name}</p>
+                          <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
+                            {sub.keyPoints?.map((kp, k) => (
+                              <li key={k} style={{ display: 'flex', alignItems: 'flex-start', gap: 6, marginBottom: 3 }}>
+                                <span style={{ color: '#f59e0b', fontSize: 10, marginTop: 2, flexShrink: 0 }}>→</span>
+                                <span style={{ fontSize: 11, color: 'var(--color-text-muted)', lineHeight: 1.5 }}>{kp}</span>
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
-              )}
-            </div>
-          ))}
-        </>)}
+              ))}
+            </>)}
 
-        {/* Practice Projects */}
-        {syl.practiceProjects?.length > 0 && (<>
-          <Label>Practice Projects</Label>
-          {syl.practiceProjects.map((p, i) => (
-            <div key={i} style={{
-              padding: '10px 12px', borderRadius: 6, marginBottom: 5,
-              background: 'var(--color-elevated)', border: '1px solid var(--color-border)',
-            }}>
-              <p style={{ fontSize: 12, fontWeight: 600, color: 'var(--color-text)', margin: '0 0 4px' }}>🛠 {p.title}</p>
-              <p style={{ fontSize: 11, color: 'var(--color-text-muted)', lineHeight: 1.6, margin: 0 }}>{p.description}</p>
-            </div>
-          ))}
-        </>)}
+            {/* Practice Projects */}
+            {syl.practiceProjects?.length > 0 && (<>
+              <Label>Practice Projects</Label>
+              {syl.practiceProjects.map((p, i) => (
+                <div key={i} style={{
+                  padding: '10px 14px', borderRadius: 6, marginBottom: 6,
+                  background: 'var(--color-elevated)', border: '1px solid var(--color-border)',
+                }}>
+                  <p style={{ fontSize: 12.5, fontWeight: 600, color: 'var(--color-text)', margin: '0 0 4px' }}>🛠 {p.title}</p>
+                  <p style={{ fontSize: 11.5, color: 'var(--color-text-muted)', lineHeight: 1.6, margin: 0 }}>{p.description}</p>
+                </div>
+              ))}
+            </>)}
 
-        {/* Resources */}
-        {syl.resources?.length > 0 && (<>
-          <Label>Resources</Label>
-          {syl.resources.map((r, i) => (
-            <div key={i} style={{
-              display: 'flex', alignItems: 'center', gap: 10,
-              padding: '8px 12px', borderRadius: 6, marginBottom: 4,
-              background: 'var(--color-elevated)', border: '1px solid var(--color-border)',
-            }}>
-              <span>{r.type === 'book' ? '📚' : r.type === 'course' ? '🎓' : r.type === 'documentation' ? '📄' : '🔗'}</span>
-              <span style={{ flex: 1, fontSize: 11, color: 'var(--color-text-muted)' }}>{r.title}</span>
-              <span style={{
-                fontFamily: 'var(--font-mono)', fontSize: 9, padding: '2px 7px', borderRadius: 3,
-                ...(r.isFree
-                  ? { background: '#0d1f17', border: '1px solid #3fb95030', color: '#86efac' }
-                  : { background: '#1a1400', border: '1px solid #d2992230', color: '#fcd34d' })
-              }}>{r.isFree ? 'Free' : 'Paid'}</span>
-            </div>
-          ))}
-        </>)}
+            {/* Resources */}
+            {syl.resources?.length > 0 && (<>
+              <Label>Resources</Label>
+              {syl.resources.map((r, i) => (
+                <div key={i} style={{
+                  display: 'flex', alignItems: 'center', gap: 10,
+                  padding: '8px 12px', borderRadius: 6, marginBottom: 4,
+                  background: 'var(--color-elevated)', border: '1px solid var(--color-border)',
+                }}>
+                  <span>{r.type === 'book' ? '📚' : r.type === 'course' ? '🎓' : r.type === 'documentation' ? '📄' : '🔗'}</span>
+                  <span style={{ flex: 1, fontSize: 11.5, color: 'var(--color-text-muted)' }}>{r.title}</span>
+                  <span style={{
+                    fontFamily: 'var(--font-mono)', fontSize: 9, padding: '2px 7px', borderRadius: 3,
+                    ...(r.isFree
+                      ? { background: '#0d1f17', border: '1px solid #10b98130', color: '#6ee7b7' }
+                      : { background: '#251800', border: '1px solid #f59e0b30', color: '#fcd34d' })
+                  }}>{r.isFree ? 'Free' : 'Paid'}</span>
+                </div>
+              ))}
+            </>)}
 
-        {/* Mark complete */}
-        <button
-          onClick={onToggleComplete}
-          style={{
-            marginTop: 12, width: '100%', padding: '10px 16px', borderRadius: 6, cursor: 'pointer',
-            background: isCompleted ? '#0d1f17' : '#1a2f4a',
-            border: `1px solid ${isCompleted ? '#3fb95040' : '#3b82f640'}`,
-            color: isCompleted ? '#86efac' : '#93c5fd',
-            fontFamily: 'var(--font-sans)', fontSize: 12, fontWeight: 600,
-            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
-          }}
-        >
-          {isCompleted ? '✅ Marked Complete — click to undo' : '🎯 Mark as Complete'}
-        </button>
-      </>)}
+            {/* Mark complete button */}
+            <button
+              onClick={onToggleComplete}
+              style={{
+                marginTop: 16, width: '100%', padding: '11px 16px', borderRadius: 6, cursor: 'pointer',
+                background: isCompleted ? '#0d1f17' : '#231805',
+                border: `1px solid ${isCompleted ? '#10b98140' : '#f59e0b40'}`,
+                color: isCompleted ? '#6ee7b7' : '#fbbf24',
+                fontFamily: 'var(--font-sans)', fontSize: 12.5, fontWeight: 600,
+                display: 'flex', alignItems: 'center', justifyCenter: 'center', gap: 8,
+              }}
+            >
+              {isCompleted ? <CheckSquare size={14}/> : <Square size={14}/>}
+              {isCompleted ? 'Marked Complete · Click to undo' : 'Mark as Complete'}
+            </button>
+          </>)}
+        </div>
+      </div>
     </div>
   );
 }
 
-// ── Individual node card ──────────────────────────────────
-function NodeCard({ node, isExpanded, isCompleted, onToggle, nodeRef }) {
-  const cat   = CAT[node.category] || CAT.frameworks;
-  const dColor = DIFF_C[node.difficulty] || '#8b949e';
+// ── Node Card ──────────────────────────────────
+function NodeCard({ node, isSelected, isCompleted, onSelect, nodeRef }) {
+  const cat    = CAT[node.category] || CAT.frameworks;
+  const dColor = DIFF_C[node.difficulty] || '#9ca3af';
 
   return (
     <div
       ref={nodeRef}
-      onClick={onToggle}
+      onClick={onSelect}
       style={{
         minWidth: 175, maxWidth: 210, width: 190,
-        background: isExpanded ? cat.bg : 'var(--color-elevated)',
-        border: `1px solid ${isExpanded ? cat.accent : isCompleted ? '#3fb95055' : 'var(--color-border-muted)'}`,
+        background: isSelected ? cat.bg : 'var(--color-elevated)',
+        border: `1px solid ${isSelected ? cat.accent : isCompleted ? '#10b98155' : 'var(--color-border-muted)'}`,
         borderRadius: 8,
         cursor: 'pointer',
         position: 'relative',
         overflow: 'hidden',
-        boxShadow: isExpanded ? `0 0 0 1px ${cat.accent}30, 0 4px 18px ${cat.accent}15` : 'none',
+        boxShadow: isSelected ? `0 0 0 1px ${cat.accent}50, 0 4px 18px ${cat.accent}20` : 'none',
       }}
     >
       {/* Top accent strip */}
       <div style={{
-        height: 2, borderRadius: '8px 8px 0 0',
-        background: isCompleted ? '#3fb950' : cat.accent,
+        height: 2.5, borderRadius: '8px 8px 0 0',
+        background: isCompleted ? '#10b981' : cat.accent,
       }} />
 
       <div style={{ padding: '10px 13px' }}>
@@ -294,19 +338,17 @@ function NodeCard({ node, isExpanded, isCompleted, onToggle, nodeRef }) {
           }}>{node.difficulty}</span>
 
           {node.estimatedWeeks && (
-            <span style={{ fontFamily: 'var(--font-mono)', fontSize: 9, color: '#22d3ee' }}>
+            <span style={{ fontFamily: 'var(--font-mono)', fontSize: 9, color: '#fef08a' }}>
               ⏱ {node.estimatedWeeks}w
             </span>
           )}
 
           {isCompleted && (
-            <span style={{ fontSize: 10, color: '#3fb950', marginLeft: 'auto' }}>✓</span>
+            <span style={{ fontSize: 10, color: '#10b981', marginLeft: 'auto' }}>✓</span>
           )}
 
           <div style={{ marginLeft: isCompleted ? 0 : 'auto' }}>
-            {isExpanded
-              ? <ChevronUp size={11} color={cat.light} />
-              : <ChevronDown size={11} color="var(--color-text-subtle)" />}
+            <Zap size={11} color={isSelected ? cat.light : 'var(--color-text-subtle)'} />
           </div>
         </div>
       </div>
@@ -319,7 +361,7 @@ export default function FlowchartView({ role, choice }) {
   const [rawData,  setRawData]  = useState(null);
   const [loading,  setLoading]  = useState(true);
   const [error,    setError]    = useState(null);
-  const [expanded, setExpanded] = useState(null);
+  const [selectedNode, setSelectedNode] = useState(null);
   const [lines,    setLines]    = useState([]);
   const [completed, setCompleted] = useState(() => {
     try { return JSON.parse(localStorage.getItem('completedNodes') || '{}'); }
@@ -331,7 +373,7 @@ export default function FlowchartView({ role, choice }) {
 
   // Fetch roadmap
   useEffect(() => {
-    setLoading(true); setError(null); setExpanded(null); setLines([]);
+    setLoading(true); setError(null); setSelectedNode(null); setLines([]);
     fetchRoadmap(role, choice.label)
       .then(d  => { setRawData(d); setLoading(false); })
       .catch(e => { setError(e.message); setLoading(false); });
@@ -348,11 +390,7 @@ export default function FlowchartView({ role, choice }) {
     });
   }, [role, choice]);
 
-  const handleToggle = useCallback(id => {
-    setExpanded(prev => prev === id ? null : id);
-  }, []);
-
-  // Draw SVG lines after DOM settles
+  // Measure SVG connectors accurately (strictly fixed coordinates, zero shifting!)
   useLayoutEffect(() => {
     if (!rawData?.nodes || !containerRef.current) return;
 
@@ -383,10 +421,9 @@ export default function FlowchartView({ role, choice }) {
       setLines(newLines);
     };
 
-    // Slight delay so DOM is measured after reflow
-    const t = setTimeout(draw, 60);
+    const t = setTimeout(draw, 50);
     return () => clearTimeout(t);
-  }, [rawData, expanded]);
+  }, [rawData]);
 
   // Group by level
   const byLevel = {};
@@ -399,7 +436,6 @@ export default function FlowchartView({ role, choice }) {
   const total = rawData?.nodes?.length || 0;
   const done  = rawData?.nodes?.filter(n => isCompleted(n.id)).length || 0;
 
-  // ── Render ──
   if (loading) return (
     <div style={{
       display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12, padding: '3rem',
@@ -407,20 +443,20 @@ export default function FlowchartView({ role, choice }) {
     }}>
       <div className="spinner" />
       <p style={{ fontFamily: 'var(--font-mono)', fontSize: 12, color: 'var(--color-text-muted)' }}>
-        Building roadmap for <span style={{ color: '#3b82f6' }}>{choice.label}</span>…
+        Building roadmap for <span style={{ color: '#f59e0b' }}>{choice.label}</span>…
       </p>
     </div>
   );
 
   if (error) return (
-    <div style={{ padding: 16, borderRadius: 8, background: '#140a0a', border: '1px solid #f8514920' }}>
+    <div style={{ padding: 16, borderRadius: 8, background: '#1a0a0a', border: '1px solid #ef444420' }}>
       <p style={{ fontFamily: 'var(--font-mono)', fontSize: 12, color: '#f87171' }}>Error: {error}</p>
     </div>
   );
 
   return (
     <div>
-      {/* ── Header bar ── */}
+      {/* Header bar */}
       <div style={{
         display: 'flex', alignItems: 'center', justifyContent: 'space-between',
         padding: '10px 16px',
@@ -436,12 +472,12 @@ export default function FlowchartView({ role, choice }) {
               {choice.label} Roadmap
             </p>
             <p style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: 'var(--color-text-subtle)', margin: 0 }}>
-              {total} skills · Click any card to see full syllabus inline
+              {total} skills · Click any card to view detailed syllabus drawer
             </p>
           </div>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-          <div style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: '#3fb950' }}>
+          <div style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: '#10b981' }}>
             ✓ {done}/{total}
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
@@ -453,7 +489,7 @@ export default function FlowchartView({ role, choice }) {
         </div>
       </div>
 
-      {/* ── Category legend ── */}
+      {/* Category legend */}
       <div style={{
         display: 'flex', flexWrap: 'wrap', gap: '6px 16px',
         padding: '8px 16px',
@@ -471,7 +507,7 @@ export default function FlowchartView({ role, choice }) {
         ))}
       </div>
 
-      {/* ── Flowchart canvas ── */}
+      {/* Flowchart canvas (STABLE, fixed card slots, zero layout jumping!) */}
       <div
         ref={containerRef}
         style={{
@@ -491,7 +527,7 @@ export default function FlowchartView({ role, choice }) {
         }}>
           <defs>
             <marker id="arr" markerWidth="7" markerHeight="7" refX="5" refY="3.5" orient="auto">
-              <path d="M0,1 L6,3.5 L0,6 Z" fill="#3b82f650" />
+              <path d="M0,1 L6,3.5 L0,6 Z" fill="#f59e0b50" />
             </marker>
           </defs>
           {lines.map(l => {
@@ -500,7 +536,7 @@ export default function FlowchartView({ role, choice }) {
               <path
                 key={l.id}
                 d={`M ${l.x1} ${l.y1} C ${l.x1} ${my}, ${l.x2} ${my}, ${l.x2} ${l.y2}`}
-                stroke="#3b82f640"
+                stroke="#f59e0b40"
                 strokeWidth="1.5"
                 fill="none"
                 markerEnd="url(#arr)"
@@ -512,40 +548,39 @@ export default function FlowchartView({ role, choice }) {
         {/* Level rows */}
         <div style={{ position: 'relative', zIndex: 1 }}>
           {levels.map((lvl, lvlIdx) => (
-            <div key={lvl} style={{ marginBottom: lvlIdx < levels.length - 1 ? 44 : 0 }}>
-              {/* Nodes in this level */}
+            <div key={lvl} style={{ marginBottom: lvlIdx < levels.length - 1 ? 48 : 0 }}>
               <div style={{
                 display: 'flex', justifyContent: 'center',
-                alignItems: 'flex-start',
-                gap: 18, flexWrap: 'wrap',
+                alignItems: 'center',
+                gap: 20, flexWrap: 'wrap',
               }}>
                 {byLevel[lvl].map(node => (
-                  <div key={node.id} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 0 }}>
-                    <NodeCard
-                      node={node}
-                      isExpanded={expanded === node.id}
-                      isCompleted={isCompleted(node.id)}
-                      onToggle={() => handleToggle(node.id)}
-                      nodeRef={el => { nodeRefs.current[node.id] = el; }}
-                    />
-
-                    {/* Inline syllabus — expands below the card */}
-                    {expanded === node.id && (
-                      <InlineSyllabus
-                        role={role}
-                        choice={choice}
-                        node={node}
-                        isCompleted={isCompleted(node.id)}
-                        onToggleComplete={() => toggleComplete(node.id)}
-                      />
-                    )}
-                  </div>
+                  <NodeCard
+                    key={node.id}
+                    node={node}
+                    isSelected={selectedNode?.id === node.id}
+                    isCompleted={isCompleted(node.id)}
+                    onSelect={() => setSelectedNode(node)}
+                    nodeRef={el => { nodeRefs.current[node.id] = el; }}
+                  />
                 ))}
               </div>
             </div>
           ))}
         </div>
       </div>
+
+      {/* Drawer Syllabus Modal — Slides open on right, zero page layout shifting! */}
+      {selectedNode && (
+        <SyllabusDrawer
+          role={role}
+          choice={choice}
+          node={selectedNode}
+          isCompleted={isCompleted(selectedNode.id)}
+          onToggleComplete={() => toggleComplete(selectedNode.id)}
+          onClose={() => setSelectedNode(null)}
+        />
+      )}
     </div>
   );
 }

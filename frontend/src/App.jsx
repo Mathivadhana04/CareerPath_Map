@@ -32,9 +32,9 @@ export default function App() {
         <div className="flex items-center gap-2.5">
           <div
             className="flex items-center justify-center w-6 h-6 rounded"
-            style={{ background: '#1d2f4a', border: '1px solid #3b82f630' }}
+            style={{ background: '#231805', border: '1px solid #f59e0b40' }}
           >
-            <GitBranch size={13} color="#3b82f6" />
+            <GitBranch size={13} color="#f59e0b" />
           </div>
           <span className="font-display text-sm font-700 tracking-tight" style={{ color: 'var(--color-text)' }}>
             CareerPathMap
