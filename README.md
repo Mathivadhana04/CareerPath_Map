@@ -172,25 +172,7 @@ http://localhost:5173
 
 ---
 
-## 🤝 Contributing
 
-Contributions are welcome! Here's how to get started:
-
-1. **Fork** this repository
-2. Create a feature branch: `git checkout -b feat/your-feature`
-3. Commit your changes: `git commit -m "feat: add your feature"`
-4. Push to your branch: `git push origin feat/your-feature`
-5. Open a **Pull Request**
-
-Please follow [Conventional Commits](https://www.conventionalcommits.org/) for commit messages.
-
----
-
-## 📄 License
-
-This project is licensed under the **MIT License** — see the [LICENSE](LICENSE) file for details.
-
----
 
 <div align="center">
 
