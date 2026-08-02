@@ -26,6 +26,9 @@ function Label({ children }) {
   );
 }
 
+// ── Client-side syllabus cache ────────────────────────────
+const SYLLABUS_CACHE = new Map();
+
 // ── Inline Syllabus ───────────────────────────────────────
 function InlineSyllabus({ role, choice, node, isCompleted, onToggleComplete }) {
   const [syl,    setSyl]    = useState(null);
@@ -34,10 +37,30 @@ function InlineSyllabus({ role, choice, node, isCompleted, onToggleComplete }) {
   const [open,   setOpen]   = useState({ 0: true });
 
   useEffect(() => {
+    const cacheKey = `${role}::${choice.label}::${node.label}`;
+    if (SYLLABUS_CACHE.has(cacheKey)) {
+      setSyl(SYLLABUS_CACHE.get(cacheKey));
+      setLoad(false);
+      return;
+    }
+
+    let active = true;
     setLoad(true); setErr(null); setSyl(null);
+
     fetchSyllabus(role, choice.label, node.label)
-      .then(d => { setSyl(d); setLoad(false); })
-      .catch(e => { setErr(e.message); setLoad(false); });
+      .then(d => {
+        if (!active) return;
+        SYLLABUS_CACHE.set(cacheKey, d);
+        setSyl(d);
+        setLoad(false);
+      })
+      .catch(e => {
+        if (!active) return;
+        setErr(e.message || 'Failed to load syllabus');
+        setLoad(false);
+      });
+
+    return () => { active = false; };
   }, [role, choice.label, node.label]);
 
   const cat = CAT[node.category] || CAT.frameworks;
