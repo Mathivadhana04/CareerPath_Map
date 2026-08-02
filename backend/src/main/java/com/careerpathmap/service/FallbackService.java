@@ -270,7 +270,6 @@ public class FallbackService {
                 { "type": "course", "title": "Mastering %s — Practical Guide", "isFree": true },
                 { "type": "book", "title": "Architecting Scalable Systems", "isFree": false }
               ]
-            }
-            """, skill, skill, role, skill, skill);
+            """, skill, skill, role, skill, skill, skill);
     }
 }
